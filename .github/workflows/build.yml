@@ -23,7 +23,7 @@ jobs:
           shell: pwsh
     strategy:
       matrix:
-        platform: [netframework, net-x86, net-x64]
+        platform: [netframework, netx86, net-x64]
         include:
           - platform: netframework
             package-name: netframework
