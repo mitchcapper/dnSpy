@@ -1,5 +1,5 @@
 param(
-	[ValidateSet("all","net-x86","net-x64")]
+	[ValidateSet("all","netframework","net-x86","net-x64")]
 	[string]$buildtfm = 'all',
 	[switch]$NoMsbuild
 	)
