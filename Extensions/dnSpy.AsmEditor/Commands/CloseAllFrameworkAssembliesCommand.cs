@@ -24,10 +24,9 @@ using System.Linq;
 using dnSpy.AsmEditor.Assembly;
 using dnSpy.AsmEditor.SaveModule;
 using dnSpy.AsmEditor.UndoRedo;
-using dnSpy.Contracts.Documents;
 using dnSpy.Contracts.Documents.TreeView;
 using dnSpy.Contracts.Menus;
-
+using dnSpy.Contracts.Utilities;
 
 namespace dnSpy.AsmEditor.Commands {
 	[ExportMenuItem(OwnerGuid = MenuConstants.APP_MENU_FILE_GUID, Header = "Close All Framework Assemblies", Group = MenuConstants.GROUP_APP_MENU_FILE_OPEN, Order = 55)]
@@ -48,16 +47,13 @@ namespace dnSpy.AsmEditor.Commands {
 		AssemblyDocumentNode[]? GetNodes() {
 			var nodes = new List<AssemblyDocumentNode>();
 
-			var checkMethod = System.Reflection.Assembly.GetEntryAssembly()?.GetType("dnSpy.Search.FrameworkFileUtils")?.GetMethod("IsFrameworkAssembly", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
-			if (checkMethod == null)
-				return null;
 			foreach (var node in documentTreeView.TreeView.Root.DataChildren.OfType<AssemblyDocumentNode>()) {
 				var doc = node.Document;
-				
-				if (node.IsExe == false && checkMethod.Invoke(null, new object?[] {doc.Filename, doc.AssemblyDef?.Name?.ToString() }) is true)
-					nodes.Add(node); 
-				
-					
+
+				if (!node.IsExe && FrameworkFileUtils.IsFrameworkAssembly(doc.Filename, doc.AssemblyDef?.Name?.ToString()))
+					nodes.Add(node);
+
+
 			}
 			return nodes.Count == 0 ? null : nodes.ToArray();
 		}
