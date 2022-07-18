@@ -29,10 +29,10 @@ jobs:
             package-name: netframework
             build-dir: net48
           - platform: net-x86
-            package-name: win32
+            package-name: net-win32
             build-dir: net6.0-windows\win-x86\publish
           - platform: net-x64
-            package-name: win64
+            package-name: net-win64
             build-dir: net6.0-windows\win-x64\publish
 
     steps:
