@@ -43,18 +43,14 @@ namespace dnSpy.AsmEditor.Commands {
 			this.documentSaver = documentSaver;
 			this.appService = appService;
 		}
-
 		AssemblyDocumentNode[]? GetNodes() {
 			var nodes = new List<AssemblyDocumentNode>();
-
 			foreach (var node in documentTreeView.TreeView.Root.DataChildren.OfType<AssemblyDocumentNode>()) {
 				var doc = node.Document;
-
 				if (!node.IsExe && FrameworkFileUtils.IsFrameworkAssembly(doc.Filename, doc.AssemblyDef?.Name?.ToString()))
 					nodes.Add(node);
-
-
 			}
+
 			return nodes.Count == 0 ? null : nodes.ToArray();
 		}
 
