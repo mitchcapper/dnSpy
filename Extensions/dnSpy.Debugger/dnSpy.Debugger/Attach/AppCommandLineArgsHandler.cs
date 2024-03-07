@@ -20,32 +20,73 @@
 using System;
 using System.ComponentModel.Composition;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
 using dnSpy.Contracts.App;
+using dnSpy.Contracts.Debugger;
 using dnSpy.Contracts.Debugger.Attach;
 
 namespace dnSpy.Debugger.Attach {
 	[Export(typeof(IAppCommandLineArgsHandler))]
 	sealed class AppCommandLineArgsHandler : IAppCommandLineArgsHandler {
 		readonly Lazy<AttachableProcessesService> attachableProcessesService;
+		readonly Lazy<DbgManager> dbgManager;
 
 		[ImportingConstructor]
-		AppCommandLineArgsHandler(Lazy<AttachableProcessesService> attachableProcessesService) =>
+		AppCommandLineArgsHandler(Lazy<AttachableProcessesService> attachableProcessesService, Lazy<DbgManager> dbgManager) {
 			this.attachableProcessesService = attachableProcessesService;
+			this.dbgManager = dbgManager;
+		}
 
 		public double Order => 0;
 
+		[DllImport("kernel32.dll")]
+		private static extern bool SetEvent(IntPtr hEvent);
+		[DllImport("kernel32.dll")]
+		private static extern bool CloseHandle(IntPtr hObject);
+		private async Task BreakOnAttach(AttachableProcess process) {
+			TaskCompletionSource<bool> isDebuggingChangedSrc = new();
+			TaskCompletionSource<bool> isRunningChangedSrc = new();
+
+			EventHandler? IsDebuggingHandler=null;
+			EventHandler? IsRunningHandler = null;
+			var mgr = dbgManager.Value;
+
+
+			IsDebuggingHandler = ( _, _) => { if (mgr.IsDebugging == true) isDebuggingChangedSrc.SetResult(true); };
+			IsRunningHandler = ( _, _) => { if (mgr.IsRunning == true) isRunningChangedSrc.SetResult(true); };
+			mgr.IsDebuggingChanged += IsDebuggingHandler;
+			mgr.IsRunningChanged += IsRunningHandler;
+			process.Attach();
+			if (mgr.IsRunning != true || mgr.IsDebugging != true)
+				await Task.WhenAny(Task.WhenAll(isDebuggingChangedSrc.Task, isRunningChangedSrc.Task), Task.Delay(TimeSpan.FromSeconds(10)));
+			mgr.IsDebuggingChanged -= IsDebuggingHandler;
+			mgr.IsRunningChanged -= IsRunningHandler;
+			if (mgr.IsRunning == true && mgr.IsDebugging == true)
+				mgr.BreakAll();
+		}
 		public async void OnNewArgs(IAppCommandLineArgs args) {
+			AttachableProcess? process=null;
 			if (args.DebugAttachPid is int pid && pid != 0) {
 				var processes = await attachableProcessesService.Value.GetAttachableProcessesAsync(null, new[] { pid }, null, CancellationToken.None).ConfigureAwait(false);
-				var process = processes.FirstOrDefault(p => p.ProcessId == pid);
-				process?.Attach();
+				process = processes.FirstOrDefault(p => p.ProcessId == pid);
+				if (args.DebugEvent != 0) {
+					var evt = new IntPtr(args.DebugEvent);
+					SetEvent(evt);
+					CloseHandle(evt);
+				}
 			}
 			else if (args.DebugAttachProcess is string processName && !string.IsNullOrEmpty(processName)) {
 				var processes = await attachableProcessesService.Value.GetAttachableProcessesAsync(processName, CancellationToken.None).ConfigureAwait(false);
-				var process = processes.FirstOrDefault();
-				process?.Attach();
+				process = processes.FirstOrDefault();
 			}
+			if (args.DebugBreakOnAttach && process != null)
+					await BreakOnAttach(process);
+				else
+					process?.Attach();
 		}
+
 	}
 }
