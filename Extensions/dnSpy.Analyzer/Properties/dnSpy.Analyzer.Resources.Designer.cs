@@ -196,6 +196,15 @@ namespace dnSpy.Analyzer.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Subtyped By.
+        /// </summary>
+        public static string SubtypedByTreeNode {
+            get {
+                return ResourceManager.GetString("SubtypedByTreeNode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Overridden By.
         /// </summary>
         public static string OverriddenByTreeNode {
