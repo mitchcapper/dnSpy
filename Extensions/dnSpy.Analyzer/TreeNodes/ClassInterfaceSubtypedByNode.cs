@@ -30,27 +30,10 @@ namespace dnSpy.Analyzer.TreeNodes {
 	sealed class ClassInterfaceSubtypedByNode : SearchNode {
 		readonly TypeDef analyzedType;
 
-		public ClassInterfaceSubtypedByNode(TypeDef analyzedType) {
-			this.analyzedType = analyzedType ?? throw new ArgumentNullException(nameof(analyzedType));
-			//isSystemObject = analyzedType.DefinitionAssembly.IsCorLib() && analyzedType.FullName == "System.Object";
-			//=> this.analyzedClassOrInterface = analyzedClassOrInterface ?? throw new ArgumentNullException(nameof(analyzedClassOrInterface));
-		}
+		public ClassInterfaceSubtypedByNode(TypeDef analyzedType) => this.analyzedType = analyzedType ?? throw new ArgumentNullException(nameof(analyzedType));
 
 		protected override void Write(ITextColorWriter output, IDecompiler decompiler) =>
 			output.Write(BoxedTextColor.Text, dnSpy_Analyzer_Resources.SubtypedByTreeNode);
-
-		//protected override IEnumerable<AnalyzerTreeNodeData> FetchChildren(CancellationToken ct) {
-
-
-		//	bool includeAllModules = isComType;
-		//	var options = ScopedWhereUsedAnalyzerOptions.None;
-		//	if (includeAllModules)
-		//		options |= ScopedWhereUsedAnalyzerOptions.IncludeAllModules;
-		//	if (isComType)
-		//		options |= ScopedWhereUsedAnalyzerOptions.ForcePublic;
-		//	var analyzer = new ScopedWhereUsedAnalyzer<AnalyzerTreeNodeData>(Context.DocumentService, analyzedType, FindReferencesInType, options);
-		//	return analyzer.PerformAnalysis(ct);
-		//}
 		protected override IEnumerable<AnalyzerTreeNodeData> FetchChildren(CancellationToken ct) {
 			var analyzer = new ScopedWhereUsedAnalyzer<AnalyzerTreeNodeData>(Context.DocumentService, analyzedType, FindReferencesInType);
 			return analyzer.PerformAnalysis(ct);
