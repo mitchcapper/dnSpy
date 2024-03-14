@@ -49,6 +49,9 @@ namespace dnSpy.Analyzer.TreeNodes {
 			if (TypeExposedByNode.CanShow(analyzedType))
 				yield return new TypeExposedByNode(analyzedType);
 
+			if (ClassInterfaceSubtypedByNode.CanShow(analyzedType))
+				yield return new ClassInterfaceSubtypedByNode(analyzedType);
+
 			if (TypeExtensionMethodsNode.CanShow(analyzedType))
 				yield return new TypeExtensionMethodsNode(analyzedType);
 		}
