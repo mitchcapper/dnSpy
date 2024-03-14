@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014-2019 de4dot@gmail.com
+    Copyright (C) 2014-2024 mitch.capper+dns@gmail.com
 
     This file is part of dnSpy
 
@@ -30,28 +30,37 @@ namespace dnSpy.Analyzer.TreeNodes {
 	sealed class ClassInterfaceSubtypedByNode : SearchNode {
 		readonly TypeDef analyzedType;
 
-		public ClassInterfaceSubtypedByNode(TypeDef analyzedType) => this.analyzedType = analyzedType ?? throw new ArgumentNullException(nameof(analyzedType));
+		public ClassInterfaceSubtypedByNode(TypeDef analyzedType) =>
+			this.analyzedType = analyzedType ?? throw new ArgumentNullException(nameof(analyzedType));
 
 		protected override void Write(ITextColorWriter output, IDecompiler decompiler) =>
 			output.Write(BoxedTextColor.Text, dnSpy_Analyzer_Resources.SubtypedByTreeNode);
+
 		protected override IEnumerable<AnalyzerTreeNodeData> FetchChildren(CancellationToken ct) {
 			var analyzer = new ScopedWhereUsedAnalyzer<AnalyzerTreeNodeData>(Context.DocumentService, analyzedType, FindReferencesInType);
 			return analyzer.PerformAnalysis(ct);
 		}
 
 		IEnumerable<AnalyzerTreeNodeData> FindReferencesInType(TypeDef type) {
-			if (analyzedType.IsInterface) {
-				if (type.HasInterfaces && type.Interfaces.Any(a => a.Interface == analyzedType))
-					yield return new TypeNode(type) { Context = Context };
+			if (analyzedType.IsInterface && type.HasInterfaces) {
+				foreach (var iface in type.Interfaces) {
+					if (IsEqual(iface.Interface)) {
+						yield return new TypeNode(type) { Context = Context };
+						break;
+					}
+				}
+
 				yield break;
 			}
-			if (type.IsEnum || !type.IsClass)
+
+			if (type.IsEnum || !type.IsClass || type.IsSealed)
 				yield break;
 
-
-			if (type.BaseType == analyzedType)
+			if (IsEqual(type.BaseType))
 				yield return new TypeNode(type) { Context = Context };
 		}
+
+		private bool IsEqual(ITypeDefOrRef itm) => Helpers.CheckEquals(analyzedType, itm.GetScopeType());
 
 		public static bool CanShow(TypeDef type) => (type.IsClass || type.IsInterface) && !type.IsEnum;
 	}

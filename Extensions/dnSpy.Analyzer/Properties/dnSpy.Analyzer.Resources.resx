@@ -160,7 +160,7 @@
     <value>Implemented By</value>
   </data>
   <data name="SubtypedByTreeNode" xml:space="preserve">
-    <value>Subtyped By</value>
+    <value>Subtypes</value>
   </data>
   <data name="InstantiatedByTreeNode" xml:space="preserve">
     <value>Instantiated By</value>
