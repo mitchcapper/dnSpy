@@ -198,9 +198,9 @@ namespace dnSpy.Analyzer.Properties {
         /// <summary>
         ///   Looks up a localized string similar to Subtypes.
         /// </summary>
-        public static string SubtypesByTreeNode {
+        public static string SubtypesTreeNode {
             get {
-                return ResourceManager.GetString("SubtypesByTreeNode", resourceCulture);
+                return ResourceManager.GetString("SubtypesTreeNode", resourceCulture);
             }
         }
         

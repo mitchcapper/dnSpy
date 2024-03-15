@@ -27,14 +27,14 @@ using dnSpy.Contracts.Decompiler;
 using dnSpy.Contracts.Text;
 
 namespace dnSpy.Analyzer.TreeNodes {
-	sealed class SubtypesByNode : SearchNode {
+	sealed class SubtypesNode : SearchNode {
 		readonly TypeDef analyzedType;
 
-		public SubtypesByNode(TypeDef analyzedType) =>
+		public SubtypesNode(TypeDef analyzedType) =>
 			this.analyzedType = analyzedType ?? throw new ArgumentNullException(nameof(analyzedType));
 
 		protected override void Write(ITextColorWriter output, IDecompiler decompiler) =>
-			output.Write(BoxedTextColor.Text, dnSpy_Analyzer_Resources.SubtypesByTreeNode);
+			output.Write(BoxedTextColor.Text, dnSpy_Analyzer_Resources.SubtypesTreeNode);
 
 		protected override IEnumerable<AnalyzerTreeNodeData> FetchChildren(CancellationToken ct) {
 			var analyzer = new ScopedWhereUsedAnalyzer<AnalyzerTreeNodeData>(Context.DocumentService, analyzedType, FindReferencesInType);
