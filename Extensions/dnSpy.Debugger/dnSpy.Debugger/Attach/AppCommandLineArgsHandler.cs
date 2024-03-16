@@ -43,48 +43,77 @@ namespace dnSpy.Debugger.Attach {
 
 		[DllImport("kernel32.dll")]
 		private static extern bool SetEvent(IntPtr hEvent);
+
 		[DllImport("kernel32.dll")]
 		private static extern bool CloseHandle(IntPtr hObject);
-		private async Task BreakOnAttach(AttachableProcess process) {
-			TaskCompletionSource<bool> isDebuggingChangedSrc = new();
-			TaskCompletionSource<bool> isRunningChangedSrc = new();
 
-			EventHandler? IsDebuggingHandler=null;
-			EventHandler? IsRunningHandler = null;
+		private async Task HandleEventOnAttach(AttachableProcess process, IntPtr jitDebugStartEventHandle, bool BreakOnStart) {
 			var mgr = dbgManager.Value;
+			var tsc = new TaskCompletionSource<object?>();
+			Func<Task>? SendSignalEvent = jitDebugStartEventHandle != IntPtr.Zero ? async () => {
+				var hdl = jitDebugStartEventHandle;
+				jitDebugStartEventHandle = IntPtr.Zero;//we might get called multiple times
+				if (hdl != IntPtr.Zero) {
+					await Task.Delay(500); //without the delay we will be 15-40 ticks late on attaching, there is no maximum here other than responsiveness for user.  Most of the time without the resume event sent we will not fully attach
+					SetEvent(hdl);
+					CloseHandle(hdl);
+				}
+			}
+			: null;
 
+			EventHandler<DbgMessageThreadCreatedEventArgs>? threadCreatedHandler = null;
 
-			IsDebuggingHandler = ( _, _) => { if (mgr.IsDebugging == true) isDebuggingChangedSrc.SetResult(true); };
-			IsRunningHandler = ( _, _) => { if (mgr.IsRunning == true) isRunningChangedSrc.SetResult(true); };
-			mgr.IsDebuggingChanged += IsDebuggingHandler;
-			mgr.IsRunningChanged += IsRunningHandler;
+			threadCreatedHandler = async (_, e) => {
+				mgr.MessageThreadCreated -= threadCreatedHandler;
+				if (BreakOnStart)
+					e.Pause = true;
+				tsc.TrySetResult(default);
+
+			};
+			EventHandler? runningDebuggingHandler = null;
+			runningDebuggingHandler = (_, _) => {
+				if (!mgr.IsDebugging || mgr.IsRunning != true)
+					return;
+				SendSignalEvent?.Invoke();
+				mgr.IsRunningChanged -= runningDebuggingHandler;
+				mgr.IsDebuggingChanged -= runningDebuggingHandler;
+			};
+
+			if (jitDebugStartEventHandle != IntPtr.Zero) {
+				mgr.IsRunningChanged += runningDebuggingHandler;
+				mgr.IsDebuggingChanged += runningDebuggingHandler;
+			}
+
+			mgr.MessageThreadCreated += threadCreatedHandler; // even if we are not BreakOnStart we will use this to complete the wait event
+
 			process.Attach();
-			if (mgr.IsRunning != true || mgr.IsDebugging != true)
-				await Task.WhenAny(Task.WhenAll(isDebuggingChangedSrc.Task, isRunningChangedSrc.Task), Task.Delay(TimeSpan.FromSeconds(10)));
-			mgr.IsDebuggingChanged -= IsDebuggingHandler;
-			mgr.IsRunningChanged -= IsRunningHandler;
-			if (mgr.IsRunning == true && mgr.IsDebugging == true)
-				mgr.BreakAll();
+
+			/*
+				We want to do cleanup here for a few just in cases:
+					- If we don't attach we want to remove the event listeners so we don't randomly pause a future session.  
+					- if the debug manager status events don't go off as expected and we haven't already sent the event handle signal the process is suspended until the signal comes (or we exit) so it acts as a backup to firing that event.
+			*/
+			if (await Task.WhenAny(Task.Delay(TimeSpan.FromSeconds(10)), tsc.Task) != tsc.Task) {
+				SendSignalEvent?.Invoke();
+				mgr.MessageThreadCreated -= threadCreatedHandler;
+				mgr.IsRunningChanged -= runningDebuggingHandler;
+				mgr.IsDebuggingChanged -= runningDebuggingHandler;
+			}
 		}
 		public async void OnNewArgs(IAppCommandLineArgs args) {
-			AttachableProcess? process=null;
+			AttachableProcess? process = null;
 			if (args.DebugAttachPid is int pid && pid != 0) {
 				var processes = await attachableProcessesService.Value.GetAttachableProcessesAsync(null, new[] { pid }, null, CancellationToken.None).ConfigureAwait(false);
 				process = processes.FirstOrDefault(p => p.ProcessId == pid);
-				if (args.DebugEvent != 0) {
-					var evt = new IntPtr(args.DebugEvent);
-					SetEvent(evt);
-					CloseHandle(evt);
-				}
 			}
 			else if (args.DebugAttachProcess is string processName && !string.IsNullOrEmpty(processName)) {
 				var processes = await attachableProcessesService.Value.GetAttachableProcessesAsync(processName, CancellationToken.None).ConfigureAwait(false);
 				process = processes.FirstOrDefault();
 			}
-			if (args.DebugBreakOnAttach && process != null)
-					await BreakOnAttach(process);
-				else
-					process?.Attach();
+			if ((args.DebugBreakOnAttach || args.DebugEvent != 0) && process is not null)
+				await HandleEventOnAttach(process, new IntPtr(args.DebugEvent), args.DebugBreakOnAttach);
+			else
+				process?.Attach();
 		}
 
 	}
